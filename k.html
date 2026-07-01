@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" id="theme-color-meta" content="#050507">
+    <title>Prism | The Open-Source Android Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-base: #050507;
+            --text-main: #f0f0f0;
+            --text-muted: #9ca3af;
+            --accent-copper: #c28b74;
+            --accent-silver: #d1d1d1;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --blob-color-1: rgba(194, 139, 116, 0.05);
+            --blob-color-2: rgba(209, 209, 209, 0.05);
+            --blob-bg: radial-gradient(circle, rgba(194,139,116,0.08) 0%, rgba(0,0,0,0) 70%);
+        }
+
+        :root.light-theme {
+            --bg-base: #f3f4f6;
+            --text-main: #111827;
+            --text-muted: #4b5563;
+            --accent-copper: #b45325;
+            --accent-silver: #6b7280;
+            --glass-bg: rgba(0, 0, 0, 0.04);
+            --glass-border: rgba(0, 0, 0, 0.1);
+            --blob-color-1: rgba(180, 83, 37, 0.08);
+            --blob-color-2: rgba(107, 114, 128, 0.08);
+            --blob-bg: radial-gradient(circle, rgba(180,83,37,0.12) 0%, rgba(255,255,255,0) 70%);
+        }
+
+        /* Utility overrides to seamlessly invert hardcoded dark mode classes */
+        :root.light-theme .text-white { color: var(--text-main) !important; }
+        :root.light-theme .bg-white { background-color: var(--text-main) !important; color: var(--bg-base) !important; }
+        :root.light-theme .text-black { color: var(--bg-base) !important; }
+        :root.light-theme .bg-black\/40 { background-color: rgba(0,0,0,0.03) !important; }
+        :root.light-theme .phone-mockup { 
+            background: #f8f9fa; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), inset 0 0 0 4px rgba(255, 255, 255, 1), inset 0 0 0 6px var(--glass-border); 
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 50%, var(--blob-color-1), transparent 25%),
+                radial-gradient(circle at 85% 30%, var(--blob-color-2), transparent 25%);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-copper); }
+
+        /* Typography */
+        .text-gradient {
+            background: linear-gradient(135deg, var(--accent-silver) 0%, var(--accent-copper) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* 3D Tilt Container Styles */
+        .tilt-wrapper {
+            perspective: 1500px;
+            transform-style: preserve-3d;
+        }
+
+        .tilt-element {
+            transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease;
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        /* Phone Mockup Styling */
+        .phone-mockup {
+            border-radius: 2.5rem;
+            border: 1px solid var(--glass-border);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.8),
+                inset 0 0 0 4px rgba(0, 0, 0, 1), /* Inner bezel */
+                inset 0 0 0 6px var(--glass-border); /* Inner silver line */
+            overflow: hidden;
+            position: relative;
+            background: #000;
+            transform: translateZ(30px); /* Lift off the card base */
+        }
+        
+        .phone-mockup img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+        }
+
+        /* Intro Animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(194, 139, 116, 0.2)); }
+            50% { filter: drop-shadow(0 0 40px rgba(194, 139, 116, 0.5)); }
+        }
+
+        .hero-logo {
+            animation: float 6s ease-in-out infinite, pulse-glow 4s ease-in-out infinite;
+        }
+
+        /* Scroll Reveal Utility */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px) scale(0.98);
+            transition: opacity 0.6s cubic-bezier(0.5, 0, 0, 1), transform 0.6s cubic-bezier(0.5, 0, 0, 1);
+            will-change: opacity, transform;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Dynamic Background Blob */
+        .bg-blob {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 80vw;
+            height: 80vw;
+            max-width: 800px;
+            max-height: 800px;
+            transform: translate(-50%, -50%);
+            background: var(--blob-bg);
+            border-radius: 50%;
+            z-index: -1;
+            pointer-events: none;
+            transition: transform 0.1s ease-out, background 0.3s ease;
+        }
+
+        /* Entrance Screen Specific Styles */
+        .body-locked {
+            overflow: hidden;
+            height: 100vh;
+        }
+        @keyframes shimmer {
+            100% { transform: translateX(100%); }
+        }
+        .active-ent {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+        }
+        .fade-out-up {
+            opacity: 0 !important;
+            transform: scale(1.1) translateY(-5vh) !important;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-[#c28b74] selection:text-white body-locked">
+
+    <!-- STUNNING ENTRANCE OVERLAY -->
+    <div id="entrance-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#050507] overflow-hidden transition-all duration-1000 ease-[cubic-bezier(0.7,0,0.3,1)]">
+        
+        <!-- Luxury ambient glowing orbs (Reactive to Mouse) -->
+        <div id="orb-1" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] min-w-[300px] max-w-[700px] bg-[var(--accent-copper)] rounded-full mix-blend-screen filter blur-[120px] opacity-30 animate-[pulse-glow_6s_ease-in-out_infinite] transition-transform duration-700 ease-out pointer-events-none"></div>
+        <div id="orb-2" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[35vw] h-[35vw] min-w-[200px] max-w-[500px] bg-white rounded-full mix-blend-screen filter blur-[150px] opacity-10 transition-transform duration-1000 ease-out pointer-events-none"></div>
+
+        <!-- Premium Glass overlay -->
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-[60px] pointer-events-none z-0"></div>
+        
+        <!-- Entrance Content -->
+        <div class="relative z-10 flex flex-col items-center text-center px-4" id="entrance-content" style="transition: transform 1s cubic-bezier(0.7,0,0.3,1), opacity 0.8s ease;">
+            
+            <div class="w-24 h-24 sm:w-32 sm:h-32 mb-8 rounded-3xl p-1 relative opacity-0 translate-y-12 transition-all duration-1000 ease-out" id="ent-logo">
+                <div class="w-full h-full rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(194,139,116,0.4)]">
+                    <img src="icon.png" alt="Prism Logo" class="w-full h-full object-cover" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYzI4Yjc0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIxMiAyIDIgMjIgMjIgMjIiPjwvcG9seWdvbj48L3N2Zz4='">
+                </div>
+            </div>
+
+            <h1 class="text-5xl sm:text-7xl md:text-8xl font-bold tracking-[0.15em] uppercase text-white mb-4 opacity-0 translate-y-12 transition-all duration-1000 delay-100 ease-out drop-shadow-2xl" id="ent-title">
+                Prism
+            </h1>
+            
+            <p class="text-gray-300 tracking-[0.4em] uppercase text-xs sm:text-sm md:text-base mb-12 opacity-0 translate-y-12 transition-all duration-1000 delay-200 ease-out" id="ent-subtitle">
+                The Open-Source Experience
+            </p>
+            
+            <button id="enter-website-btn" class="opacity-0 translate-y-12 transition-all duration-1000 delay-300 ease-out group relative px-8 py-4 rounded-full bg-[var(--accent-copper)]/85 backdrop-blur-xl border border-white/20 text-white font-semibold tracking-wide shadow-[0_8px_32px_rgba(194,139,116,0.3)] hover:shadow-[0_16px_48px_rgba(194,139,116,0.5)] hover:bg-[var(--accent-copper)] hover:scale-105 overflow-hidden">
+                <span class="relative z-10 flex items-center gap-2">
+                    Enter Website
+                    <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                </span>
+                <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Interactive Space Grid Background -->
+    <canvas id="space-grid" class="fixed inset-0 z-[-2] pointer-events-none w-full h-full"></canvas>
+
+    <nav class="fixed top-0 w-full z-50 bg-[var(--bg-base)]/80 backdrop-blur-md border-b border-[var(--glass-border)] transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="icon.png" alt="Prism Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYzI4Yjc0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIxMiAyIDIgMjIgMjIgMjIiPjwvcG9seWdvbj48L3N2Zz4='">
+                <span class="font-bold text-xl tracking-tight text-gradient">Prism</span>
+            </div>
+            <button id="theme-toggle" class="p-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] text-[var(--text-main)] hover:bg-[var(--glass-border)] transition-all focus:outline-none shadow-sm" aria-label="Toggle Theme">
+                <svg id="sun-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <svg id="moon-icon" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Ambient background element that follows cursor slightly -->
+    <div class="bg-blob" id="cursor-blob"></div>
+
+    <header class="relative min-h-screen flex flex-col items-center justify-center pt-20 pb-12 px-6 sm:px-12 lg:px-24 overflow-hidden">
+        
+        <div class="flex flex-col items-center z-10 text-center max-w-4xl mx-auto mt-10">
+            
+            <!-- App Logo with 3D context -->
+            <div class="tilt-wrapper mb-12 w-48 h-48 sm:w-64 sm:h-64 rounded-3xl p-1 relative z-10 reveal">
+                <div class="tilt-element w-full h-full glass-card flex items-center justify-center hero-logo p-4">
+                    <img src="icon.png" alt="Prism Logo" class="w-full h-full object-cover rounded-2xl shadow-2xl" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYzI4Yjc0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIxMiAyIDIgMjIgMjIgMjIiPjwvcG9seWdvbj48L3N2Zz4='">
+                </div>
+            </div>
+
+            <h1 class="reveal text-5xl sm:text-7xl font-bold tracking-tight mb-6 leading-tight" style="transition-delay: 100ms;">
+                <span class="text-gradient">Prism</span>
+            </h1>
+            <h2 class="reveal text-2xl sm:text-3xl font-medium text-white mb-8 max-w-3xl leading-snug" style="transition-delay: 200ms;">
+                A Smart, Secure, and Fully Open-Source Android Gallery
+            </h2>
+            
+            <p class="reveal text-lg text-[var(--text-muted)] max-w-2xl mb-12 leading-relaxed" style="transition-delay: 300ms;">
+                Experience the ultimate replacement for your stock photo app. This gallery is a completely open-source Android media manager that combines advanced on-device AI, extensive customization, and robust privacy tools—all with the transparency and trust of public code.
+            </p>
+
+            <div class="reveal flex flex-col gap-4 w-full sm:w-auto" style="transition-delay: 400ms;">
+                <!-- Updated Buttons to Premium Material Look -->
+                <a href="#explore" class="px-8 py-4 rounded-full bg-[var(--accent-copper)]/85 backdrop-blur-md border border-[var(--accent-copper)]/50 text-white font-semibold hover:bg-[var(--accent-copper)] transition-all duration-300 shadow-[0_8px_32px_rgba(194,139,116,0.3)] hover:shadow-[0_16px_48px_rgba(194,139,116,0.5)] hover:-translate-y-1 flex items-center justify-center group overflow-hidden relative">
+                    <span class="relative z-10 flex items-center gap-2">Explore Features</span>
+                    <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                </a>
+                
+                <a href="https://github.com/sauravbr/Prism/releases/download/V5/Prism-arm64-v8a.apk" class="px-8 py-4 rounded-full bg-[var(--accent-copper)]/70 backdrop-blur-md border border-[var(--accent-copper)]/40 text-white font-semibold hover:bg-[var(--accent-copper)]/90 transition-all duration-300 shadow-[0_8px_32px_rgba(194,139,116,0.2)] hover:shadow-[0_16px_48px_rgba(194,139,116,0.4)] hover:-translate-y-1 flex items-center justify-center gap-2 group overflow-hidden relative">
+                    <span class="relative z-10 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download APK
+                    </span>
+                    <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                </a>
+                <div class="text-sm text-[var(--text-muted)] mt-2 font-medium tracking-wide flex items-center justify-center gap-2 opacity-80">
+                    <svg class="w-4 h-4 text-[var(--accent-copper)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Requires arm64-v8a (64-bit) architecture
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scroll indicator -->
+        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-50">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+        </div>
+    </header>
+
+    <main id="explore" class="relative z-10 px-6 sm:px-12 lg:px-24 py-12 space-y-32">
+
+        <!-- Promotional Video Showcase Section -->
+        <section class="max-w-5xl mx-auto w-full relative z-10">
+            <div class="reveal text-center mb-10">
+                <div class="inline-block px-3 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-sm text-[var(--accent-silver)] tracking-wide uppercase mb-4">See Prism in Action</div>
+                <h3 class="text-3xl sm:text-4xl font-bold">Fluid & Beautiful</h3>
+            </div>
+            
+            <div class="reveal glass-card rounded-[2.5rem] p-3 sm:p-5 shadow-2xl border border-[var(--glass-border)] relative group">
+                <div class="relative rounded-[2rem] overflow-hidden bg-black aspect-video flex items-center justify-center">
+                    <video autoplay loop muted playsinline class="w-full h-full object-cover">
+                        <source src="animation.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                    <!-- Overlay aesthetic gradient -->
+                    <div class="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-[2rem] pointer-events-none"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 1: Community -->
+        <section class="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+            <div class="lg:w-1/2 space-y-6">
+                <div class="reveal inline-block px-3 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-sm text-[var(--accent-silver)] tracking-wide uppercase">Open & Transparent</div>
+                <h3 class="reveal text-3xl sm:text-4xl font-bold">Community-Driven & Open Source</h3>
+                <p class="reveal text-lg text-[var(--text-muted)]">Transparency and user empowerment are at the core of the experience.</p>
+                
+                <ul class="space-y-4 mt-8">
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Fully Open Source:</strong> The app's source code is entirely public, ensuring absolute transparency, zero hidden telemetry, and community-audited privacy.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Direct GitHub Access:</strong> Easily navigate to the project's GitHub repository directly from the bottom of the app's settings menu to track development, report bugs, or contribute.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Community-Powered Development:</strong> Built by Android enthusiasts for Android users, meaning feature updates are driven by actual user needs rather than corporate interests.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Version Transparency:</strong> The current build version is always clearly displayed right inside the app, keeping you informed.</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="lg:w-1/2 flex justify-center perspective-container tilt-wrapper">
+                <div class="reveal tilt-element glass-card p-4 rounded-[3rem]">
+                    <div class="phone-mockup max-w-[300px]">
+                        <img src="settings.jpg" alt="Settings Menu" onerror="this.style.display='none'">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Organization -->
+        <section class="flex flex-col-reverse lg:flex-row items-center gap-16 lg:gap-24">
+            <div class="lg:w-1/2 flex justify-center perspective-container tilt-wrapper">
+                <div class="reveal tilt-element glass-card p-4 rounded-[3rem]">
+                    <div class="phone-mockup max-w-[300px]">
+                        <img src="timeline.jpg" alt="Timeline View" onerror="this.style.display='none'">
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:w-1/2 space-y-6">
+                <div class="reveal inline-block px-3 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-sm text-[var(--accent-silver)] tracking-wide uppercase">Effortless Discovery</div>
+                <h3 class="reveal text-3xl sm:text-4xl font-bold">Intelligent Organization & Discovery</h3>
+                <p class="reveal text-lg text-[var(--text-muted)]">Keep your memories perfectly organized without lifting a finger.</p>
+                
+                <ul class="space-y-4 mt-8">
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Dynamic Timeline:</strong> View your media in a beautifully organized timeline with auto-generated location tags (e.g., "Digha, India") and intelligent grouping.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Nostalgic Memories:</strong> Rediscover past moments with story cards, showing media from "1 year ago" or "2 years ago" right at the top of your feed.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Comprehensive Album Management:</strong> Easily navigate grid views of your device folders, displaying exact item counts and storage size for folders like Screenshots, Camera, and Downloads.</div>
+                    </li>
+                     <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Quick Access Chips:</strong> Instantly access your Trash, Favorites, Vault, and Ignored media right from the top of the main screen.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Smart Categorization:</strong> Automatically categorize your media into distinct folders using visual recognition.</div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Section 3: AI & Privacy -->
+        <section class="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+            <div class="lg:w-1/2 space-y-6">
+                <div class="reveal inline-block px-3 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-sm text-[var(--accent-silver)] tracking-wide uppercase">Local Processing</div>
+                <h3 class="reveal text-3xl sm:text-4xl font-bold">Privacy First: On-Device AI</h3>
+                <p class="reveal text-lg text-[var(--text-muted)]">Experience the power of artificial intelligence without compromising your data privacy.</p>
+                
+                <ul class="space-y-4 mt-8">
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Semantic Search:</strong> Search for photos by typing descriptions of the content, powered by advanced AI models.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">100% Offline Processing:</strong> All AI image searching and automatic classification is performed entirely on your device using ONNX format models.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Zero Internet Required:</strong> Your data never leaves your phone; AI functions do not require an internet connection, ensuring your media remains strictly private.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Model Management:</strong> Easily download, manage, or delete specific AI model files (like visual and textual quant models) directly within the app to save space.</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="lg:w-1/2 flex justify-center perspective-container tilt-wrapper">
+                <div class="reveal tilt-element glass-card p-4 rounded-[3rem]">
+                    <div class="phone-mockup max-w-[300px]">
+                        <img src="smartfeatures.jpg" alt="AI Models Manager" onerror="this.style.display='none'">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Security -->
+        <section class="flex flex-col-reverse lg:flex-row items-center gap-16 lg:gap-24">
+            <div class="lg:w-1/2 flex justify-center perspective-container tilt-wrapper">
+                <div class="reveal tilt-element glass-card p-4 rounded-[3rem]">
+                    <div class="phone-mockup max-w-[300px]">
+                        <img src="vault.jpg" alt="Search and Vault Chips" onerror="this.style.display='none'">
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:w-1/2 space-y-6">
+                <div class="reveal inline-block px-3 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-sm text-[var(--accent-silver)] tracking-wide uppercase">Enterprise Grade</div>
+                <h3 class="reveal text-3xl sm:text-4xl font-bold">Uncompromising Privacy & Security</h3>
+                <p class="reveal text-lg text-[var(--text-muted)]">Keep your sensitive media safe with enterprise-grade security features.</p>
+                
+                <ul class="space-y-4 mt-8">
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Encrypted Vault:</strong> Move sensitive photos and videos into a dedicated Vault with configurable encryption behaviors.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">App Sandboxing:</strong> Utilize metadata isolation mode and sandboxed image decoding to keep your data secure from other processes.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Secure Mode:</strong> Hide the app's preview in the recent apps menu to prevent shoulder surfing when switching applications.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Trash Protection:</strong> Utilize a 30-day trash can with an optional "Require confirmation on trash" setting to prevent accidental deletions.</div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Section 5: Customization -->
+        <section class="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+            <div class="lg:w-1/2 space-y-6">
+                <div class="reveal inline-block px-3 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-sm text-[var(--accent-silver)] tracking-wide uppercase">Your Aesthetic</div>
+                <h3 class="reveal text-3xl sm:text-4xl font-bold">Ultimate Customization</h3>
+                <p class="reveal text-lg text-[var(--text-muted)]">Tailor the app to match your exact aesthetic and workflow preferences.</p>
+                
+                <ul class="space-y-4 mt-8">
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Granular Theming:</strong> Choose from predefined color palettes, force dark mode, or use a high-contrast AMOLED mode optimized for specific screens.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Visual Effects:</strong> Enable UI enhancements like "Fancy Blur" for media backgrounds, auto-contrast for buttons, and animated media transitions.</div>
+                    </li>
+                    <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Media Viewer Control:</strong> Customize your viewing experience with options like Full Brightness when viewing, video auto-play, and hiding the UI during video playback.</div>
+                    </li>
+                     <li class="reveal flex items-start">
+                        <svg class="w-6 h-6 text-[var(--accent-copper)] mr-3 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div><strong class="text-white block mb-1">Navigation Tweaks:</strong> Switch between modern or old Material Navigation, hide search bars on scroll, and set your preferred default launch screen.</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="lg:w-1/2 flex justify-center perspective-container tilt-wrapper">
+                <div class="reveal tilt-element glass-card p-4 rounded-[3rem]">
+                    <div class="phone-mockup max-w-[300px]">
+                        <img src="gridview.jpg" alt="Grid Folder View" onerror="this.style.display='none'">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 6: System Requirements -->
+        <section class="max-w-4xl mx-auto w-full relative z-10">
+            <div class="reveal glass-card rounded-[2.5rem] p-8 sm:p-10 border border-[var(--accent-copper)]/30 flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8 bg-[var(--glass-bg)] relative overflow-hidden shadow-[0_0_40px_rgba(194,139,116,0.05)]">
+                 <div class="absolute -right-20 -top-20 w-64 h-64 bg-[var(--accent-copper)] rounded-full blur-[100px] opacity-20 pointer-events-none"></div>
+
+                 <div class="p-5 rounded-2xl bg-[var(--accent-copper)]/10 border border-[var(--accent-copper)]/20 text-[var(--accent-copper)] flex-shrink-0 relative z-10">
+                     <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                 </div>
+                 <div class="text-left relative z-10">
+                     <h4 class="text-2xl font-bold text-white mb-3">Hardware Requirements</h4>
+                     <p class="text-[var(--text-muted)] text-base leading-relaxed">
+                         To deliver lightning-fast on-device AI and advanced image processing, Prism is built exclusively for modern <strong class="text-[var(--text-main)]">64-bit (arm64-v8a)</strong> architectures. Older 32-bit devices (such as armeabi-v7a) are not supported in order to ensure an uncompromised, flagship-level experience.
+                     </p>
+                 </div>
+            </div>
+        </section>
+
+        <!-- Section 7: Cloud Integration -->
+        <section class="max-w-4xl mx-auto text-center glass-card p-12 sm:p-16 border-t-4 border-t-[var(--accent-copper)]">
+             <div class="reveal inline-block px-3 py-1 mb-6 rounded-full border border-[var(--glass-border)] bg-[#c28b7420] text-sm text-[var(--accent-copper)] tracking-wide uppercase font-semibold">Seamless Sync</div>
+            <h3 class="reveal text-3xl sm:text-4xl font-bold mb-6">Cloud Integration & Backup</h3>
+            <p class="reveal text-lg text-[var(--text-muted)] mb-10 max-w-2xl mx-auto">Seamlessly sync and protect your library across your ecosystem.</p>
+            
+            <div class="grid sm:grid-cols-2 gap-8 text-left">
+                 <div class="reveal p-6 bg-black/40 rounded-2xl border border-[var(--glass-border)] hover:border-[var(--accent-silver)] transition-colors">
+                    <svg class="w-8 h-8 text-white mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    <h4 class="text-xl font-bold text-white mb-2">Third-Party Cloud Sync</h4>
+                    <p class="text-[var(--text-muted)] text-sm leading-relaxed">Natively connect to self-hosted and cloud solutions like Immich and ownCloud for seamless remote media access.</p>
+                 </div>
+                 <div class="reveal p-6 bg-black/40 rounded-2xl border border-[var(--glass-border)] hover:border-[var(--accent-copper)] transition-colors" style="transition-delay: 100ms;">
+                    <svg class="w-8 h-8 text-white mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <h4 class="text-xl font-bold text-white mb-2">Easy Backup & Restore</h4>
+                    <p class="text-[var(--text-muted)] text-sm leading-relaxed">Export a backup file of all your app settings, favorites, and vaults, and easily restore them to a new device.</p>
+                 </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div class="pb-16 pt-12 flex justify-center relative z-10">
+        <a href="https://sauravbr.github.io" target="_blank" rel="noopener noreferrer" class="reveal group flex items-center gap-3 px-6 py-3 rounded-full bg-[var(--glass-bg)] border border-[var(--glass-border)] backdrop-blur-md shadow-lg hover:shadow-xl hover:border-[var(--accent-copper)] transition-all duration-300">
+            <span class="text-[var(--text-muted)] text-sm font-medium group-hover:text-[var(--text-main)] transition-colors">Developed by</span>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-[var(--accent-silver)] to-[var(--accent-copper)] font-bold tracking-wide">sauravbr.github.io</span>
+            <svg class="w-4 h-4 text-[var(--accent-copper)] group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 0. ENTRANCE SCREEN LOGIC ---
+            const entranceScreen = document.getElementById('entrance-screen');
+            const enterBtn = document.getElementById('enter-website-btn');
+            const entranceContent = document.getElementById('entrance-content');
+            
+            // Staggered reveal of entrance elements
+            setTimeout(() => { document.getElementById('ent-logo').classList.add('active-ent'); }, 200);
+            setTimeout(() => { document.getElementById('ent-title').classList.add('active-ent'); }, 500);
+            setTimeout(() => { document.getElementById('ent-subtitle').classList.add('active-ent'); }, 800);
+            setTimeout(() => { document.getElementById('enter-website-btn').classList.add('active-ent'); }, 1200);
+
+            // Parallax mouse effect for Entrance Orbs
+            const orb1 = document.getElementById('orb-1');
+            const orb2 = document.getElementById('orb-2');
+            
+            entranceScreen.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 120;
+                const y = (e.clientY / window.innerHeight - 0.5) * 120;
+                
+                orb1.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+                orb2.style.transform = `translate(calc(-50% + ${-x}px), calc(-50% + ${-y}px))`;
+            });
+
+            // Handle "Enter Website" Button Click
+            enterBtn.addEventListener('click', () => {
+                // Scale up and fade out text content
+                entranceContent.classList.add('fade-out-up');
+                
+                // Fade out background after slight delay
+                setTimeout(() => {
+                    entranceScreen.style.opacity = '0';
+                    entranceScreen.style.pointerEvents = 'none';
+                    
+                    // Re-enable scroll and completely hide screen
+                    setTimeout(() => {
+                        document.body.classList.remove('body-locked');
+                        entranceScreen.style.display = 'none';
+                        // Re-trigger scroll reveal since we are at top
+                        revealObserver.disconnect();
+                        revealElements.forEach(el => revealObserver.observe(el));
+                    }, 1000);
+                }, 300);
+            });
+            // --------------------------------
+
+
+            // 1. 3D Tilt Effect Logic
+            const tiltWrappers = document.querySelectorAll('.tilt-wrapper');
+            
+            tiltWrappers.forEach(wrapper => {
+                const element = wrapper.querySelector('.tilt-element');
+                
+                wrapper.addEventListener('mousemove', (e) => {
+                    const rect = wrapper.getBoundingClientRect();
+                    
+                    // Calculate mouse position relative to the center of the element
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    
+                    const rotateX = ((y - centerY) / centerY) * -15; 
+                    const rotateY = ((x - centerX) / centerX) * 15;
+                    
+                    element.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.05, 1.05, 1.05)`;
+                    
+                    const glareX = (x / rect.width) * 100;
+                    const glareY = (y / rect.height) * 100;
+                    
+                    if(element.classList.contains('glass-card')) {
+                         element.style.background = `
+                            radial-gradient(
+                                circle at ${glareX}% ${glareY}%, 
+                                rgba(255, 255, 255, 0.1) 0%, 
+                                rgba(255, 255, 255, 0.02) 50%,
+                                transparent 100%
+                            ),
+                            var(--glass-bg)
+                        `;
+                    }
+                });
+                
+                wrapper.addEventListener('mouseleave', () => {
+                    element.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+                    if(element.classList.contains('glass-card')) {
+                        element.style.background = `var(--glass-bg)`;
+                    }
+                });
+            });
+
+            // 2. Scroll Reveal Observer
+            const revealElements = document.querySelectorAll('.reveal');
+            
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                    } else {
+                        entry.target.classList.remove('active');
+                    }
+                });
+            }, {
+                root: null,
+                threshold: 0.1,
+                rootMargin: "0px 0px -50px 0px"
+            });
+            
+            revealElements.forEach(el => revealObserver.observe(el));
+
+            // 3. Ambient Background Blob following cursor slightly
+            const blob = document.getElementById('cursor-blob');
+            window.addEventListener('mousemove', (e) => {
+                const x = e.clientX;
+                const y = e.clientY;
+                
+                blob.animate({
+                    left: `${x}px`,
+                    top: `${y}px`
+                }, { duration: 3000, fill: "forwards" });
+            });
+
+            // 4. Interactive Space Grid
+            const canvas = document.getElementById('space-grid');
+            const ctx = canvas.getContext('2d');
+            let width, height, nodes = [];
+            const spacing = window.innerWidth < 768 ? 50 : 70;
+            let gridMouse = { x: -1000, y: -1000 };
+            let scrollVelocity = 0;
+            let lastScrollY = window.scrollY;
+
+            window.addEventListener('mousemove', (e) => { gridMouse.x = e.clientX; gridMouse.y = e.clientY; });
+            window.addEventListener('mouseout', () => { gridMouse.x = -1000; gridMouse.y = -1000; });
+            
+            window.addEventListener('touchmove', (e) => { 
+                gridMouse.x = e.touches[0].clientX; 
+                gridMouse.y = e.touches[0].clientY; 
+            }, { passive: true });
+            window.addEventListener('touchend', () => { 
+                gridMouse.x = -1000; 
+                gridMouse.y = -1000; 
+            });
+
+            window.addEventListener('scroll', () => { 
+                scrollVelocity = window.scrollY - lastScrollY;
+                lastScrollY = window.scrollY;
+            });
+
+            function resize() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+                
+                nodes = [];
+                const cols = Math.ceil(width / spacing) + 1;
+                const rows = Math.ceil(height / spacing) + 1;
+                for (let i = 0; i < cols; i++) {
+                    let col = [];
+                    for (let j = 0; j < rows; j++) {
+                        col.push({ x: i * spacing, y: j * spacing, baseX: i * spacing, baseY: j * spacing, vx: 0, vy: 0 });
+                    }
+                    nodes.push(col);
+                }
+            }
+
+            function drawGrid() {
+                requestAnimationFrame(drawGrid);
+                ctx.clearRect(0, 0, width, height);
+
+                const isLight = document.documentElement.classList.contains('light-theme');
+                const defaultColor = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
+                const activeRGB = isLight ? '180, 83, 37' : '194, 139, 116'; 
+                
+                scrollVelocity *= 0.92;
+
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = 0; j < nodes[i].length; j++) {
+                        let node = nodes[i][j];
+                        
+                        let dx = gridMouse.x - node.x;
+                        let dy = gridMouse.y - node.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        
+                        if (dist < 200) {
+                            let force = (200 - dist) / 200;
+                            node.vx -= (dx / dist) * force * 1.5;
+                            node.vy -= (dy / dist) * force * 1.5;
+                        }
+
+                        node.vy -= scrollVelocity * 0.35;
+
+                        node.vx += (node.baseX - node.x) * 0.08;
+                        node.vy += (node.baseY - node.y) * 0.08;
+
+                        node.vx *= 0.85;
+                        node.vy *= 0.85;
+
+                        node.x += node.vx;
+                        node.y += node.vy;
+                    }
+                }
+
+                ctx.lineWidth = 1;
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = 0; j < nodes[i].length; j++) {
+                        let node = nodes[i][j];
+                        if (i < nodes.length - 1) drawConnection(node, nodes[i+1][j], activeRGB, defaultColor);
+                        if (j < nodes[i].length - 1) drawConnection(node, nodes[i][j+1], activeRGB, defaultColor);
+                    }
+                }
+            }
+
+            function drawConnection(n1, n2, activeRGB, defaultColor) {
+                ctx.beginPath();
+                ctx.moveTo(n1.x, n1.y);
+                ctx.lineTo(n2.x, n2.y);
+                
+                let midX = (n1.x + n2.x) / 2;
+                let midY = (n1.y + n2.y) / 2;
+                let dist = Math.sqrt(Math.pow(gridMouse.x - midX, 2) + Math.pow(gridMouse.y - midY, 2));
+                
+                if (dist < 250) {
+                    let intensity = 1 - (dist / 250);
+                    ctx.strokeStyle = `rgba(${activeRGB}, ${intensity * 0.8})`;
+                } else {
+                    ctx.strokeStyle = defaultColor;
+                }
+                ctx.stroke();
+            }
+
+            window.addEventListener('resize', resize);
+            resize();
+            drawGrid();
+
+            const themeToggle = document.getElementById('theme-toggle');
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+            const themeColorMeta = document.getElementById('theme-color-meta');
+            
+            if (localStorage.getItem('theme') === 'light') {
+                document.documentElement.classList.add('light-theme');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+                themeColorMeta.setAttribute('content', '#f3f4f6');
+            } else {
+                document.documentElement.classList.remove('light-theme');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+                themeColorMeta.setAttribute('content', '#050507');
+                localStorage.setItem('theme', 'dark');
+            }
+
+            themeToggle.addEventListener('click', () => {
+                document.documentElement.classList.toggle('light-theme');
+                if (document.documentElement.classList.contains('light-theme')) {
+                    localStorage.setItem('theme', 'light');
+                    sunIcon.classList.add('hidden');
+                    moonIcon.classList.remove('hidden');
+                    themeColorMeta.setAttribute('content', '#f3f4f6');
+                } else {
+                    localStorage.setItem('theme', 'dark');
+                    sunIcon.classList.remove('hidden');
+                    moonIcon.classList.add('hidden');
+                    themeColorMeta.setAttribute('content', '#050507');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
